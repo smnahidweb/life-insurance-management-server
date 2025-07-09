@@ -57,7 +57,25 @@ app.get('/users/:email/role', async (req, res) => {
 
 
 
+app.get('/policies', async (req, res) => {
+  try {
+    const policies = await policiesCollection.find().toArray();
+    res.send(policies);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch policies" });
+  }
+});
 
+// POST a new policy
+app.post('/policies', async (req, res) => {
+  try {
+    const newPolicy = req.body;
+    const result = await policiesCollection.insertOne(newPolicy);
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to add policy" });
+  }
+});
 
 
 
