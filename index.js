@@ -22,10 +22,13 @@ app.use(express.json());
 
 async function run() {
   try {
+    await client.connect();
+
     const database = client.db("life_insurance");
     const policiesCollection = database.collection("policies");
-    const usersCollection = database.collection("users"); // ✅ FIXED
+    const usersCollection = database.collection("users");
 
+    // ✅ POST user
     app.post('/users', async (req, res) => {
       const user = req.body;
       const existingUser = await usersCollection.findOne({ email: user.email });
@@ -38,78 +41,71 @@ async function run() {
       res.status(201).send(result);
     });
 
+    // ✅ GET user role by email
+    app.get('/users/:email/role', async (req, res) => {
+      const email = req.params.email;
+      try {
+        const user = await usersCollection.findOne({ email });
+        if (!user) {
+          return res.status(404).json({ message: "User not found", role: 'customer' });
+        }
+        res.json({ role: user.role || 'customer' });
+      } catch (error) {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
 
-// get users info by email
-app.get('/users/:email/role', async (req, res) => {
-  const email = req.params.email;
+    // ✅ GET all policies
+    app.get('/policies', async (req, res) => {
+      try {
+        const policies = await policiesCollection.find().toArray();
+        res.send(policies);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch policies" });
+      }
+    });
 
-  try {
-    const user = await usersCollection.findOne({ email: email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found", role: 'customer' });
-    }
-    return res.json({ role: user.role || 'customer' });
+    // ✅ POST a new policy (add purchaseCount default = 0)
+    app.post('/policies', async (req, res) => {
+      try {
+        const newPolicy = { ...req.body, purchaseCount: 0 };
+        const result = await policiesCollection.insertOne(newPolicy);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to add policy" });
+      }
+    });
+
+    // ✅ GET top 6 purchased policies
+    app.get('/top-policies', async (req, res) => {
+      try {
+        const result = await policiesCollection
+          .find()
+          .sort({ purchaseCount: -1 })
+          .limit(6)
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error in /top-policies:", error);
+        res.status(500).send({ message: "Failed to fetch top policies" });
+      }
+    });
+
+    console.log("✅ Connected to MongoDB & server routes ready");
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-
-
-app.get('/policies', async (req, res) => {
-  try {
-    const policies = await policiesCollection.find().toArray();
-    res.send(policies);
-  } catch (err) {
-    res.status(500).send({ message: "Failed to fetch policies" });
-  }
-});
-
-// POST a new policy
-app.post('/policies', async (req, res) => {
-  try {
-    const newPolicy = req.body;
-    const result = await policiesCollection.insertOne(newPolicy);
-    res.send(result);
-  } catch (err) {
-    res.status(500).send({ message: "Failed to add policy" });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // You may choose not to close the connection here to keep the server running
+    console.error("❌ Connection error:", error);
   }
 }
+
 run().catch(console.dir);
 
+// Default route
 app.get('/', (req, res) => {
-  res.send('Life Sure is running');
+  res.send('Life Sure server is running');
 });
 
+// Listen
 app.listen(port, () => {
-  console.log(`Life sure server is listening on port ${port}`);
+  console.log(`✅ Server listening on port ${port}`);
 });
