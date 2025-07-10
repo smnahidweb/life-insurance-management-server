@@ -108,6 +108,63 @@ async function run() {
       }
     });
 
+
+app.put("/policy/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+
+  try {
+    const result = await policiesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          title: updatedData.title,
+          category: updatedData.category,
+          description: updatedData.description,
+          minAge: updatedData.minAge,
+          maxAge: updatedData.maxAge,
+          coverageRange: updatedData.coverageRange,
+          durationOptions: updatedData.durationOptions,
+          basePremiumRate: updatedData.basePremiumRate,
+          image: updatedData.image,
+        },
+      }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.send({ success: true, message: "Policy updated successfully" });
+    } else {
+      res.status(404).send({ success: false, message: "Policy not found or no changes" });
+    }
+  } catch (error) {
+    console.error("Error updating policy:", error);
+    res.status(500).send({ success: false, message: "Server error" });
+  }
+});
+
+
+app.delete("/policiesDelete/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await policiesCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount > 0) {
+      res.send({ success: true, message: "Policy deleted successfully" });
+    } else {
+      res.status(404).send({ success: false, message: "Policy not found" });
+    }
+  } catch (error) {
+    console.error("Error deleting policy:", error);
+    res.status(500).send({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+
+
     // ✅ PATCH user insurance application
     app.patch("/users/:email", async (req, res) => {
       const email = req.params.email;
