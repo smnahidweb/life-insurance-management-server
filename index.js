@@ -120,6 +120,83 @@ async function run() {
 
       res.send(result);
     });
+    app.get("/users", async (req, res) => {
+  try {
+    const users = await usersCollection.find().sort({ created_at: -1 }).toArray();
+    res.send(users);
+  } catch (err) {
+    console.error("❌ Failed to fetch users:", err);
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
+
+
+
+app.get("/users/:id", async (req, res) => {
+  const { id } = req.params;
+
+  // Validate ObjectId
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: "Invalid user ID" });
+  }
+
+  try {
+    const user = await usersCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.send({ success: true, user });
+  } catch (error) {
+    console.error("Error fetching user by ID:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+// update to the role
+// ✅ Update user role by ID
+const { ObjectId } = require('mongodb');
+
+app.patch("/user/:id", async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+console.log(id,role)
+
+ 
+    const filter = { _id: new ObjectId(id) };
+    const updateDoc = { $set: { role } };
+
+    const result = await usersCollection.updateOne(filter, updateDoc);
+      return res.send(result)
+
+    
+});
+
+
+// delete users
+app.delete("/users/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await usersCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount > 0) {
+      res.send({ success: true, message: "User deleted successfully" });
+    } else {
+      res.status(404).send({ success: false, message: "User not found" });
+    }
+  } catch (err) {
+    console.error("Failed to delete user:", err);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
+
+
 
     // ✅ POST quote
     app.post('/quotes', async (req, res) => {
@@ -164,9 +241,52 @@ async function run() {
 });
 
 // get application data by email
-app.get("/applications", async (req, res) => {
+app.get("/application", async (req, res) => {
   const email = req.query.email;
   const result = await ApplicationsCollection.find({ userEmail: email }).toArray();
+  res.send(result);
+});
+
+// ✅ GET all applications (for admin)
+app.get("/applications", async (req, res) => {
+  try {
+    const result = await ApplicationsCollection.find().toArray();
+    res.send(result);
+  } catch (err) {
+    console.error("Failed to fetch applications", err);
+    res.status(500).send({ message: "Server error while fetching applications" });
+  }
+});
+
+
+ app.patch("/applications/:id", async (req, res) => {
+      const applicationId = req.params.id;
+
+      try {
+        const result = await ApplicationCollection.updateOne(
+          { _id: new ObjectId(applicationId) },
+          { $set: { reviewSubmitted: true } }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: "Review marked as submitted." });
+        } else {
+          res.status(404).send({ success: false, message: "Application not found or already updated." });
+        }
+      } catch (err) {
+        console.error("Error updating reviewSubmitted:", err);
+        res.status(500).send({ success: false, message: "Server error" });
+      }
+    });
+app.patch("/applications/:id/status", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const result = await ApplicationsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status } }
+  );
+
   res.send(result);
 });
 
