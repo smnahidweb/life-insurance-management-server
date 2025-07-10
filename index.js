@@ -29,6 +29,7 @@ async function run() {
     const usersCollection = database.collection("users");
     const quoteCollection = database.collection('quotes');
      const ApplicationsCollection = database.collection('application')
+     const reviewsCollection = database.collection('reviews')
 
     // ✅ POST user
     app.post('/users', async (req, res) => {
@@ -162,8 +163,46 @@ async function run() {
   res.send(result);
 });
 
+// get application data by email
+app.get("/applications", async (req, res) => {
+  const email = req.query.email;
+  const result = await ApplicationsCollection.find({ userEmail: email }).toArray();
+  res.send(result);
+});
 
+// review of customer post api 
+  app.post("/reviews", async (req, res) => {
+      try {
+        const review = req.body;
 
+        // Basic validation
+        if (!review.userEmail || !review.policyId || !review.rating || !review.comment) {
+          return res.status(400).send({ message: "Missing required fields." });
+        }
+
+        // Optional: prevent duplicate reviews
+        const existing = await reviewsCollection.findOne({
+          userEmail: review.userEmail,
+          policyId: review.policyId,
+        });
+        if (existing) {
+          return res.status(400).send({ message: "Review already submitted." });
+        }
+
+        review.submittedAt = new Date();
+        const result = await reviewsCollection.insertOne(review);
+        res.send(result);
+      } catch (error) {
+        console.error("Error posting review:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // ✅ GET All Reviews
+    app.get("/reviews", async (req, res) => {
+      const reviews = await reviewsCollection.find().sort({ submittedAt: -1 }).toArray();
+      res.send(reviews);
+    });
 
 
 
