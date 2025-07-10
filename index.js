@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -27,6 +27,8 @@ async function run() {
     const database = client.db("life_insurance");
     const policiesCollection = database.collection("policies");
     const usersCollection = database.collection("users");
+    const quoteCollection = database.collection('quotes');
+     const ApplicationsCollection = database.collection('application')
 
     // ✅ POST user
     app.post('/users', async (req, res) => {
@@ -90,6 +92,83 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch top policies" });
       }
     });
+
+    // ✅ Get specific policy by ID
+    app.get('/policies/:id', async (req, res) => {
+      const { id } = req.params;
+      try {
+        const policy = await policiesCollection.findOne({ _id: new ObjectId(id) });
+        if (!policy) {
+          return res.status(404).send({ message: "Policy not found" });
+        }
+        res.send(policy);
+      } catch (error) {
+        res.status(400).send({ message: "Invalid Policy ID" });
+      }
+    });
+
+    // ✅ PATCH user insurance application
+    app.patch("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const updatedApplication = req.body.insuranceApplication;
+
+      const result = await usersCollection.updateOne(
+        { email: email },
+        { $set: { insuranceApplication: updatedApplication } }
+      );
+
+      res.send(result);
+    });
+
+    // ✅ POST quote
+    app.post('/quotes', async (req, res) => {
+      const AllQuotes = {
+        ...req.body,
+        createdAt: new Date()
+      };
+      const result = await quoteCollection.insertOne(AllQuotes);
+      res.send(result);
+    });
+
+    // ✅ GET latest quote by email
+    app.get("/quotes", async (req, res) => {
+      const email = req.query.email;
+      console.log(email)
+
+      if (!email) {
+        return res.status(400).send({ message: "Email is required" });
+      }
+
+      const result = await quoteCollection
+        .find({ userEmail:email })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .toArray();
+
+      if (!result.length) {
+        return res.status(404).send({ message: "Quote not found" });
+      }
+
+      res.send(result[0]);
+    });
+
+
+
+
+    // post application data
+    app.post("/applications", async (req, res) => {
+  const application = req.body;
+  const result = await ApplicationsCollection.insertOne(application);
+  res.send(result);
+});
+
+
+
+
+
+
+
+
 
     console.log("✅ Connected to MongoDB & server routes ready");
 
