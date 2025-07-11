@@ -119,6 +119,31 @@ async function run() {
       }
     });
 
+// policy increment 
+
+// Inside your Express router (e.g., policies.routes.js or similar)
+app.patch("/policies/purchase/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await policiesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $inc: { purchaseCount: 1 } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "Policy not found or update failed." });
+    }
+
+    res.json({ message: "Purchase count incremented." });
+  } catch (error) {
+    console.error("Error incrementing purchase count:", error);
+    res.status(500).json({ message: "Failed to update purchase count." });
+  }
+});
+
+
+
     // ✅ DELETE policy
     app.delete("/policiesDelete/:id", async (req, res) => {
       const { id } = req.params;
@@ -274,18 +299,21 @@ async function run() {
     });
 
     // ✅ PATCH application reviewSubmitted
-    app.patch("/applications/:id", async (req, res) => {
-      const id = req.params.id;
-      try {
-        const result = await ApplicationsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { reviewSubmitted: true } }
-        );
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ message: "Error updating application" });
-      }
-    });
+ app.patch("/applications/:id", async (req, res) => {
+  const { id } = req.params;
+  const { assignedAgent } = req.body;
+
+  try {
+    const result = await ApplicationsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { assignedAgent } }
+    );
+    res.send(result);
+  } catch (error) {
+    console.error("Failed to assign agent:", error);
+    res.status(500).send({ message: "Failed to assign agent" });
+  }
+});
 
     // ✅ PATCH application status
     app.patch("/applications/:id/status", async (req, res) => {
