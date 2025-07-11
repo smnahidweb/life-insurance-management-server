@@ -6,6 +6,13 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 
+
+
+
+
+
+
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.hq0xigy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -32,6 +39,7 @@ async function run() {
     const reviewsCollection = database.collection('reviews');
     const toBeAgentsCollection = database.collection('agentData');
     const blogsCollection = database.collection('blogs')
+    const claimsCollection = database.collection("claims");
 
     // ✅ POST user
     app.post('/users', async (req, res) => {
@@ -327,6 +335,47 @@ app.patch("/policies/purchase/:id", async (req, res) => {
       res.send(result);
     });
 
+
+
+
+
+
+app.patch("/applicationStatus/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ message: "Status is required" });
+  }
+
+  try {
+    const result = await ApplicationsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    res.json({ message: "Application status updated successfully" });
+  } catch (error) {
+    console.error("Error updating status:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
     // ✅ POST review
     app.post("/reviews", async (req, res) => {
       const review = req.body;
@@ -395,6 +444,76 @@ app.patch("/policies/purchase/:id", async (req, res) => {
       res.status(500).send({ message: "Failed to delete blog" });
     }
   });
+
+
+
+
+
+  // claims 
+
+app.get("/claims", async (req, res) => {
+      try {
+        const userEmail = req.query.userEmail;
+        const query = userEmail ? { userEmail } : {};
+        const result = await claimsCollection.find(query).toArray();
+        res.json(result);
+      } catch (error) {
+        console.error("Error fetching claims:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+
+app.post("/claims", async (req, res) => {
+      try {
+        const claim = req.body;
+
+        // Basic validation
+        if (
+          !claim.policyId ||
+          !claim.policyTitle ||
+          !claim.userEmail ||
+          !claim.reason ||
+          !claim.documentUrl
+        ) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        claim.status = "Pending";
+        claim.submittedAt = new Date();
+
+        const result = await claimsCollection.insertOne(claim);
+        res.json({ insertedId: result.insertedId });
+      } catch (error) {
+        console.error("Error submitting claim:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+ app.patch("/claims/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+
+        if (!status) return res.status(400).json({ message: "Status is required" });
+
+        const result = await claimsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Claim not found" });
+        }
+
+        res.json({ message: "Claim status updated" });
+      } catch (error) {
+        console.error("Error updating claim:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+  
 
 
 
