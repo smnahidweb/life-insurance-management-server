@@ -31,6 +31,7 @@ async function run() {
     const ApplicationsCollection = database.collection('application');
     const reviewsCollection = database.collection('reviews');
     const toBeAgentsCollection = database.collection('agentData');
+    const blogsCollection = database.collection('blogs')
 
     // ✅ POST user
     app.post('/users', async (req, res) => {
@@ -346,6 +347,57 @@ app.patch("/policies/purchase/:id", async (req, res) => {
       const reviews = await reviewsCollection.find().sort({ submittedAt: -1 }).toArray();
       res.send(reviews);
     });
+
+
+    // post blogs
+    app.post("/blogs", async (req, res) => {
+  try {
+    const blog = req.body;
+    const result = await blogsCollection.insertOne(blog);
+    res.send(result);
+  } catch (err) {
+    console.error("Error saving blog:", err);
+    res.status(500).send({ message: "Failed to save blog" });
+  }
+});
+
+ app.get("/blogs", async (req, res) => {
+    try {
+      const result = await blogsCollection.find().sort({ publishDate: -1 }).toArray();
+      res.send(result);
+    } catch (err) {
+      res.status(500).send({ message: "Failed to fetch blogs" });
+    }
+  });
+
+
+  app.patch("/blogs/:id", async (req, res) => {
+    const blogId = req.params.id;
+    try {
+      const result = await blogsCollection.updateOne(
+        { _id: new ObjectId(blogId) },
+        { $set: { title: req.body.title, content: req.body.content } }
+      );
+      res.send(result);
+    } catch (err) {
+      console.error("Blog update error:", err);
+      res.status(500).send({ message: "Failed to update blog" });
+    }
+  });
+
+   app.delete("/blogs/:id", async (req, res) => {
+    const blogId = req.params.id;
+    try {
+      const result = await blogsCollection.deleteOne({ _id: new ObjectId(blogId) });
+      res.send(result);
+    } catch (err) {
+      console.error("Blog delete error:", err);
+      res.status(500).send({ message: "Failed to delete blog" });
+    }
+  });
+
+
+
 
     console.log("✅ Connected to MongoDB & server routes ready");
   } catch (error) {
