@@ -513,7 +513,22 @@ app.post("/claims", async (req, res) => {
       }
     });
 
-  
+  app.patch("/claims/status/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const result = await claimsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
+    );
+    res.send(result);
+  } catch (err) {
+    console.error("Failed to update claim status", err);
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
 
 
 
