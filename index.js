@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY);
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -40,7 +40,7 @@ async function run() {
     const toBeAgentsCollection = database.collection('agentData');
     const blogsCollection = database.collection('blogs')
     const claimsCollection = database.collection("claims");
-
+    const paymentCollection = database.collection('payments')
     // ✅ POST user
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -367,7 +367,23 @@ app.patch("/applicationStatus/:id", async (req, res) => {
 
 
 
+app.get('/application/:id', async (req, res) => {
+  const id = req.params.id;
 
+  try {
+    const query = { _id: new ObjectId(id) };
+    const application = await ApplicationsCollection.findOne(query);
+
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    res.json(application);
+  } catch (err) {
+    console.error('Error fetching application:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 
@@ -529,6 +545,92 @@ app.post("/claims", async (req, res) => {
   }
 });
 
+
+// set status as due
+app.patch("/applicationPaymentStatus/:id", async (req, res) => {
+  const appId = req.params.id;
+  const { paymentStatus } = req.body;
+
+  if (!paymentStatus) {
+    return res.status(400).send({ error: "paymentStatus is required" });
+  }
+
+  try {
+    
+
+    const result = await ApplicationsCollection.updateOne(
+      { _id: new ObjectId(appId) },
+      { $set: { paymentStatus } }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.send({ message: "Payment status updated successfully" });
+    } else {
+      res.status(404).send({ error: "Application not found or already up to date" });
+    }
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+app.get("/approvedApplications", async (req, res) => {
+  const userEmail = req.query.email;
+  const paymentStatus = req.query.paymentStatus; // optional
+
+  if (!userEmail) {
+    return res.status(400).send({ error: "User email is required" });
+  }
+
+  try {
+    const query = {
+      userEmail: userEmail,
+      status: "Approved",
+    };
+
+    if (paymentStatus) {
+      query.paymentStatus = paymentStatus;
+    }
+
+    const result = await ApplicationsCollection.find(query).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error("Error fetching approved applications:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+// payment api
+app.post("/create-payment-intent", async (req, res) => {
+  const { amount } = req.body;
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd",
+      payment_method_types: ["card"]
+    });
+    res.send({ clientSecret: paymentIntent.client_secret });
+  } catch (err) {
+    res.status(500).send({ error: "Stripe payment intent failed" });
+  }
+});
+
+app.patch("/applications/:id/markPaid", async (req, res) => {
+  const id = req.params.id;
+  const result = await ApplicationsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { paymentStatus: "paid" } }
+  );
+  res.send(result);
+});
+
+app.post("/payments", async (req, res) => {
+  const payment = req.body;
+  const result = await paymentCollection.insertOne(payment);
+  res.send(result);
+});
 
 
 
