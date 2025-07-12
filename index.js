@@ -632,7 +632,39 @@ app.post("/payments", async (req, res) => {
   res.send(result);
 });
 
+app.get('/payments', async (req, res) => {
+  try {
+    const db = req.app.locals.db; // assuming you set this in server.js
+    const { email, policy, from, to } = req.query;
 
+    const query = {};
+
+    if (email) {
+      query.email = email;
+    }
+
+    if (policy) {
+      query.policyTitle = policy;
+    }
+
+    if (from && to) {
+      query.date = {
+        $gte: new Date(from),
+        $lte: new Date(to),
+      };
+    }
+
+    const payments = await paymentCollection
+      .find(query)
+      .sort({ date: -1 })
+      .toArray();
+
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error('Failed to get payments:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 
     console.log("✅ Connected to MongoDB & server routes ready");
