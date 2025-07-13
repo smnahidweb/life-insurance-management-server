@@ -41,6 +41,7 @@ async function run() {
     const blogsCollection = database.collection('blogs')
     const claimsCollection = database.collection("claims");
     const paymentCollection = database.collection('payments')
+    const subscribersCollection = database.collection('subscribe')
     // ✅ POST user
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -680,6 +681,26 @@ app.get('/payments', async (req, res) => {
   } catch (error) {
     console.error('Failed to get payments:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+app.post("/subscribers", async (req, res) => {
+  const { name, email } = req.body;
+
+  if (!name || !email) {
+    return res.status(400).send({ message: "Name and Email required" });
+  }
+
+  try {
+    const result = await subscribersCollection.insertOne({
+      name,
+      email,
+      subscribedAt: new Date(),
+    });
+    res.send(result);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to subscribe" });
   }
 });
 
