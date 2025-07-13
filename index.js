@@ -436,6 +436,23 @@ app.get('/application/:id', async (req, res) => {
   });
 
 
+ app.get("/blogs/:id", async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await blogsCollection.findOne({ _id: new ObjectId(id) });
+    if (!result) {
+      return res.status(404).send({ message: "Blog not found" });
+    }
+    res.send(result);
+  } catch (err) {
+    console.error("Error fetching blog:", err);
+    res.status(500).send({ message: "Failed to fetch blog" });
+  }
+});
+
+
+
   app.patch("/blogs/:id", async (req, res) => {
     const blogId = req.params.id;
     try {
@@ -634,7 +651,7 @@ app.post("/payments", async (req, res) => {
 
 app.get('/payments', async (req, res) => {
   try {
-    const db = req.app.locals.db; // assuming you set this in server.js
+    const db = req.app.locals.db; 
     const { email, policy, from, to } = req.query;
 
     const query = {};
