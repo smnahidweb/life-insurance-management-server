@@ -9,7 +9,7 @@ const stripe = require('stripe')(process.env.PAYMENT_GATEWAY);
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors({ origin: ["http://localhost:5173"], credentials: true }));
+app.use(cors({ origin: ["https://life-insurance-server-side.vercel.app"], credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -108,7 +108,7 @@ const verifyAdminOrAgent = (req, res, next) => {
 
 
     // ✅ POST user
-    app.post('/users', verifyToken, async (req, res) => {
+    app.post('/users', async (req, res) => {
       const user = req.body;
       const existingUser = await usersCollection.findOne({ email: user.email });
       if (existingUser) {
@@ -122,7 +122,8 @@ const verifyAdminOrAgent = (req, res, next) => {
     app.get('/users/:email/role',verifyToken, async (req, res) => {
       const email = req.params.email;
       try {
-        const user = await usersCollection.findOne({ email });
+        const user = await usersCollection.findOne({email });
+        console.log(user)
         if (!user) {
           return res.status(404).json({ message: "User not found", role: 'customer' });
         }
@@ -543,7 +544,35 @@ app.patch("/policies/purchase/:id", verifyToken,verifyAgent, async (req, res) =>
 
 
 
+app.patch("/applications/:id/reject", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { feedback } = req.body;
 
+    if (!feedback || !feedback.trim()) {
+      return res.status(400).json({ message: "Feedback is required." });
+    }
+
+    const result = await ApplicationsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: "Rejected",
+          rejectionFeedback: feedback,
+        },
+      }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.status(200).json({ message: "Application rejected with feedback." });
+    } else {
+      res.status(404).json({ message: "Application not found or already rejected." });
+    }
+  } catch (error) {
+    console.error("Reject application error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 
 app.patch("/applicationStatus/:id",verifyToken,verifyAgent, async (req, res) => {
@@ -592,26 +621,36 @@ app.get('/application/:id', async (req, res) => {
 });
 
 
-
-
-
-
-
-
     // ✅ POST review
-    app.post("/reviews", async (req, res) => {
-      const review = req.body;
-      const existing = await reviewsCollection.findOne({
-        userEmail: review.userEmail,
-        policyId: review.policyId,
-      });
-      if (existing) {
-        return res.status(400).send({ message: "Review already submitted." });
-      }
+// POST /reviews - create a new review
+app.post("/reviews", async (req, res) => {
+  try {
+    const review = req.body;
+
+    // Optional: Validate required fields
+    if (
+      !review.rating ||
+      !review.comment ||
+      !review.userEmail ||
+      !review.policyId ||
+      !review.policyTitle 
+     
+    ) {
+      return res.status(400).send({ message: "Missing required fields" });
+    }
+
+    // Add timestamp if not already present
+    if (!review.submittedAt) {
       review.submittedAt = new Date();
-      const result = await reviewsCollection.insertOne(review);
-      res.send(result);
-    });
+    }
+
+    const result = await reviewsCollection.insertOne(review);
+    res.send(result);
+  } catch (error) {
+    console.error("Error submitting review:", error);
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
 
     // ✅ GET all reviews
     app.get("/reviews", async (req, res) => {
@@ -619,6 +658,27 @@ app.get('/application/:id', async (req, res) => {
       res.send(reviews);
     });
 
+// PATCH: Submit Review
+app.patch("/applications/:id/review", async (req, res) => {
+  const id = req.params.id;
+  const { review, status } = req.body;
+
+  try {
+    const result = await ApplicationsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: status || "done",
+          review: review,
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Failed to update review" });
+  }
+});
 
     // post blogs
     app.post("/blogs", verifyToken,verifyAdminOrAgent, async (req, res) => {
